@@ -1,8 +1,8 @@
 # Last Ember
 
-![A camp by day: walls, a tent, a workbench and the campfire, with the player chopping a tree](screenshots/day.jpg)
+![A camp by the water: wood walls, a tent, a workbench and the campfire, with the player fishing from the shore](screenshots/day.png)
 
-A fast, top-down survival game that runs in your browser. Gather and hunt by day, keep your campfire burning, and hold out against the predators that come each night. Every night brings more of them. Runs are short, and there is no story to grind through.
+A fast, top-down pixel-art survival game that runs in your browser. Gather and hunt by day, keep your campfire burning, and hold out against the predators that come each night. Every night brings more of them. Runs are short, and there is no story to grind through.
 
 **[Play in your browser](https://netanelyan.github.io/lastember/)**
 
@@ -17,7 +17,7 @@ It works on a computer with keyboard and mouse, with just a keyboard, and on pho
 
 Your score is the number of nights you survive.
 
-![Night at the camp: a bear breaks through the wall while wolves come through the spikes](screenshots/night.jpg)
+![Night at the camp: wolves come through the spikes while the campfire holds back the dark](screenshots/night.png)
 
 ## Controls
 
@@ -29,8 +29,9 @@ Your score is the number of nights you survive.
 | Swing: chop, mine, fight | `J` (aims for you) | Left click | Big button (aims for you) |
 | Shoot your bow | `K` (aims at the nearest animal) | Right click | Bow button (aims at the nearest animal) |
 | Feed the fire, repair, load | `E` | | Use |
+| Fish | `E` at the shore to cast, `E` again when the float dips | | Use |
 | Eat / use a bandage | `F` / `Q` | | Eat / Heal |
-| Craft | `C`, then `1`–`9` | Craft button | Craft button |
+| Craft | `C`, then `1`–`0` | Craft button | Craft button |
 | Build | `B`, then `1`–`0` to pick, `X` to remove | Build button | Build button, then tap a card |
 | Place it | `J` places it in front of you. Hold `J` and walk sideways for a row of walls. | Click the ground (hold and drag for walls) | Tap the ground (drag for walls) |
 | Menus | Arrow keys and `Enter` | Click | Tap |
@@ -42,12 +43,13 @@ You can play the whole game with only the keyboard. Touching the mouse switches 
 ## What's in it
 
 - **Hunting**: rabbits and deer bolt but tire after a few seconds of running. Boars charge back. You can spear fish from the shore, and snares catch rabbits while you're busy elsewhere.
+- **Fishing**: craft a rod, cast from the shore and reel in the moment the float dips. A nibble or two can come first, so don't jump early. Big fish count double, and now and then you haul up a crate of wood, stone, arrows or a bandage.
 - **Camping**: the campfire gives warmth and light, and it cooks raw meat and fish when you stand next to it. A tent brings you back once if you fall.
 - **Building**: wood and stone walls, gates, spikes, torches, snares, a workbench, a tent and a spring bow that shoots predators on its own.
-- **Crafting**: stone axe, pickaxe, spear, hunting bow and arrows, bandages, hide armor, a fur cloak and a fang blade made from predator teeth.
+- **Crafting**: stone axe, pickaxe, spear, fishing rod, hunting bow and arrows, bandages, hide armor, a fur cloak and a fang blade made from predator teeth.
 - **Predators**: wolves circle outside bright firelight before they attack. A lynx crouches, then pounces. Bears ignore the light and tear through wood walls. All of them find a way around your walls, and when there isn't one, they break through the weakest spot.
 - **Seasons**: snow starts on night 4. From day 7 it is winter, and even the days are cold.
-- **Perks**: 15 upgrades such as faster movement, longer-burning fires, stronger arrows or healing whenever you kill a predator.
+- **Perks**: 16 upgrades such as faster movement, longer-burning fires, stronger arrows, quicker bites when fishing or healing whenever you kill a predator.
 
 The game saves at each dawn and whenever you pause, so you can close the tab and pick up later with **Continue**.
 
@@ -81,11 +83,12 @@ js/data.js       balance tables: items, recipes, structures, creatures, perks, w
 js/audio.js      sound effects and ambience, synthesized with Web Audio
 js/input.js      keyboard, mouse, joystick and touch buttons
 js/world.js      map generation, trees/rocks/bushes, collision
-js/sprites.js    trees, rocks and icons painted in code
-js/render.js     terrain, creatures, lighting and night effects
-js/game.js       player, animal and predator AI, building, day/night cycle, waves, saving
+js/pixel.js      pixel-art compositor (WebGL): hard edges, outlines, dithered light
+js/sprites.js    trees, rocks and icons painted in code, then turned into pixel art
+js/render.js     pixel terrain, creatures, lighting and night effects
+js/game.js       player, animal and predator AI, building, fishing, day/night cycle, waves, saving
 js/ui.js         HUD, panels and menus
 js/main.js       startup and the main loop
 ```
 
-Everything is drawn in code on a canvas, so there are no image or audio files. Most of the balance lives in `js/data.js`: day and night length, hunger rate, how fast fires burn, recipe costs, creature stats and wave sizes (`waveFor`). Change a number and reload.
+Everything is drawn in code, so there are no image or audio files. The world is painted at a low "art" resolution (about two screen pixels per art pixel) into a few layers, then `js/pixel.js` scales it up with hard pixels, outlines solid objects and dithers see-through things and the night light. Most of the balance lives in `js/data.js`: day and night length, hunger rate, how fast fires burn, recipe costs, creature stats and wave sizes (`waveFor`). Change a number and reload.

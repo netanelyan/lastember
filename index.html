@@ -7,7 +7,7 @@
 <!-- BUILD:HEAD -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&family=Zilla+Slab:wght@600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jersey+15&family=Tiny5&display=swap">
 <link rel="stylesheet" href="css/style.css">
 <!-- /BUILD:HEAD -->
 </head>
@@ -15,6 +15,7 @@
 <!-- BUILD:BODY -->
 <div id="app">
   <canvas id="game" aria-label="Game view"></canvas>
+  <canvas id="overlay" aria-hidden="true"></canvas>
   <div id="vignette"></div>
   <div id="hurt"></div>
 
@@ -152,9 +153,10 @@
             <div><dt><kbd>J</kbd></dt><dd>Swing: chop, mine, fight</dd></div>
             <div><dt><kbd>K</kbd></dt><dd>Shoot your bow</dd></div>
             <div><dt><kbd>E</kbd></dt><dd>Feed fire, repair, load</dd></div>
+            <div><dt><kbd>E</kbd></dt><dd>At the shore: cast, reel in on a bite</dd></div>
             <div><dt><kbd>F</kbd> <kbd>Q</kbd></dt><dd>Eat · use a bandage</dd></div>
-            <div><dt><kbd>C</kbd> then <kbd>1</kbd>–<kbd>9</kbd></dt><dd>Craft</dd></div>
-            <div><dt><kbd>B</kbd> then <kbd>1</kbd>–<kbd>0</kbd>, <kbd>J</kbd></dt><dd>Build in front of you</dd></div>
+            <div><dt><kbd>C</kbd> then <kbd>1</kbd>–<kbd>0</kbd></dt><dd>Craft</dd></div>
+            <div><dt><kbd>B</kbd> then <kbd>1</kbd>–<kbd>0</kbd></dt><dd>Build, then J places it</dd></div>
             <div><dt><kbd>Esc</kbd></dt><dd>Close panel · pause</dd></div>
           </dl>
           <p class="keys-note">Swings and arrows aim for you. With a mouse, left click swings, right click shoots and you click the ground to build.</p>
@@ -166,7 +168,7 @@
             <div><dt>Big button</dt><dd>Swing. It aims for you.</dd></div>
             <div><dt>Bow button</dt><dd>Shoots the nearest animal</dd></div>
             <div><dt>Roll</dt><dd>Dodge an attack</dd></div>
-            <div><dt>Use</dt><dd>Feed fire, repair, load</dd></div>
+            <div><dt>Use</dt><dd>Feed fire, repair, load, fish</dd></div>
             <div><dt>Build</dt><dd>Pick an item, then tap the ground. Drag to lay walls.</dd></div>
           </dl>
         </section>
@@ -179,6 +181,7 @@
             <li>A lynx crouches before it pounces. Roll to the side.</li>
             <li>Bears ignore the light and tear through wood walls. Stone walls hold about three times longer.</li>
             <li>Raw food fills you a little but costs 4 health.</li>
+            <li>With a fishing rod, press E at the shore to cast. Reel in the moment the float dips. Now and then you haul up a crate of supplies.</li>
             <li>A tent brings you back once if you fall.</li>
             <li>Snow starts on night 4. From day 7 it is winter, and even the days are cold.</li>
           </ul>
@@ -195,6 +198,7 @@
 <script src="js/audio.js"></script>
 <script src="js/input.js"></script>
 <script src="js/world.js"></script>
+<script src="js/pixel.js"></script>
 <script src="js/sprites.js"></script>
 <script src="js/render.js"></script>
 <script src="js/game.js"></script>

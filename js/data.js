@@ -66,8 +66,9 @@ const GEAR = {
   blade: { name: 'Fang Blade' },
   armor: { name: 'Hide Armor' },
   cloak: { name: 'Fur Cloak' },
+  rod:   { name: 'Fishing Rod' },
 };
-const GEAR_ORDER = ['axe', 'pick', 'spear', 'blade', 'bow', 'armor', 'cloak'];
+const GEAR_ORDER = ['axe', 'pick', 'spear', 'blade', 'bow', 'rod', 'armor', 'cloak'];
 
 // Melee profiles. The best weapon you own is used automatically.
 const MELEE = {
@@ -81,6 +82,7 @@ const RECIPES = [
   { id: 'axe',     gear: 'axe',   cost: { wood: 4, stone: 2 },          desc: 'Chop twice the wood per hit. Hits for 10.' },
   { id: 'pick',    gear: 'pick',  cost: { wood: 4, stone: 3 },          desc: 'Break twice the stone per hit.' },
   { id: 'spear',   gear: 'spear', cost: { wood: 6, stone: 3, fiber: 3 }, desc: 'Long reach, hits for 16. Good for spearing fish.' },
+  { id: 'rod',     gear: 'rod',   cost: { wood: 3, fiber: 5 },          desc: 'Cast from the shore with E. Reel in the moment the float dips.' },
   { id: 'bandage', item: 'bandage', n: 1, cost: { fiber: 4 },           desc: 'Heals 35 health instantly.' },
   { id: 'arrows',  item: 'arrow', n: 6, cost: { wood: 2, stone: 1 },     desc: 'Ammo for your bow and for spring bows.' },
   { id: 'bow',     gear: 'bow',   cost: { wood: 6, fiber: 6 }, bench: true,          desc: 'Shoot arrows at range.' },
@@ -145,7 +147,18 @@ const PERKS = [
   { id: 'fletcher',  name: 'Fletcher',       max: 2, desc: '+3 arrows every time you craft them.', needs: 'bow' },
   { id: 'blood',     name: 'Bloodthirst',    max: 3, desc: 'Heal 4 health for every predator you kill.' },
   { id: 'owl',       name: 'Night Eyes',     max: 2, desc: 'See farther in the dark.' },
+  { id: 'angler',    name: 'Angler',         max: 2, desc: 'Fish bite sooner, and big catches and crates come up more often.', needs: 'rod' },
 ];
+
+// Fishing: how long a bite takes, how long you have to react, and what comes up.
+const FISHING = {
+  wait: [2.4, 5.5],       // seconds before the first nibble or bite
+  biteWindow: 0.7,        // seconds to reel in once the float goes under
+  reach: 150,             // how far from water you can cast
+  big: 0.22,              // chance of a big fish (two raw fish)
+  crate: 0.1,             // chance of a crate of supplies
+  crateLoot: [['wood', 3, 5], ['stone', 2, 4], ['fiber', 3, 5], ['arrow', 4, 8], ['bandage', 1, 1], ['hide', 1, 2], ['fang', 1, 1]],
+};
 
 // Predators that come for you on night n.
 function waveFor(n) {

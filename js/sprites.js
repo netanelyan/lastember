@@ -1,8 +1,6 @@
 'use strict';
-// Everything visual is painted in code: static sprites are pre-rendered once into small canvases,
-// animated things (creatures, the player, fire) are drawn every frame by the functions in render.js.
-
-const SPR = 2; // sprite supersampling
+// Everything visual is painted in code. Static sprites are painted once at the art resolution and turned
+// into pixel art (pixel.js); animated things (creatures, the player, fire) are drawn every frame by render.js.
 
 const PAL = {
   oak:    ['#2b5226', '#3a6a2f', '#4f893c', '#6ea84f'],
@@ -41,31 +39,6 @@ function polyPath(g, pts, sx = 1, ox = 0, oy = 0) {
   pts.forEach((p, i) => { const x = ox + p[0] * sx, y = oy + p[1] * sx; if (i) g.lineTo(x, y); else g.moveTo(x, y); });
   g.closePath();
 }
-// Soft top-left light / bottom-right shade over whatever was painted (offscreen canvases only).
-function volumeShade(g, R, strength = 0.35) {
-  g.save();
-  g.globalCompositeOperation = 'source-atop';
-  const gr = g.createLinearGradient(-R, -R, R, R);
-  gr.addColorStop(0, `rgba(255,250,220,${strength * 0.45})`);
-  gr.addColorStop(0.5, 'rgba(0,0,0,0)');
-  gr.addColorStop(1, `rgba(0,10,0,${strength})`);
-  g.fillStyle = gr;
-  g.fillRect(-R * 1.5, -R * 1.5, R * 3, R * 3);
-  g.restore();
-}
-
-function makeSprite(w, h, paint) {
-  const c = document.createElement('canvas');
-  c.width = Math.ceil(w * SPR);
-  c.height = Math.ceil(h * SPR);
-  const g = c.getContext('2d');
-  g.scale(SPR, SPR);
-  g.translate(w / 2, h / 2);
-  g.lineCap = 'round';
-  g.lineJoin = 'round';
-  paint(g);
-  return { c, w, h };
-}
 
 const Paint = {
   pine(g, R, seed) {
@@ -91,7 +64,6 @@ const Paint = {
     }
     g.fillStyle = '#5c9a68';
     circle(g, -R * 0.17, -R * 0.17, R * 0.09);
-    volumeShade(g, R, 0.3);
   },
 
   broadleaf(g, R, seed, pal) {
@@ -124,7 +96,6 @@ const Paint = {
       const a = rng() * TAU, d = R * (0.45 + rng() * 0.4);
       circle(g, Math.cos(a) * d * 0.9 + R * 0.12, Math.sin(a) * d * 0.9 + R * 0.12, 2 + rng() * 2.5);
     }
-    volumeShade(g, R, 0.32);
   },
 
   rock(g, R, seed, mossy) {
@@ -148,12 +119,6 @@ const Paint = {
     polyPath(g, pts, 0.42, -R * 0.24, -R * 0.27);
     g.fillStyle = PAL.stoneLight;
     g.fill();
-    const gr = g.createLinearGradient(-R, -R, R, R);
-    gr.addColorStop(0, 'rgba(255,255,255,0.12)');
-    gr.addColorStop(0.55, 'rgba(0,0,0,0)');
-    gr.addColorStop(1, 'rgba(10,14,20,0.35)');
-    g.fillStyle = gr;
-    g.fillRect(-R * 1.2, -R * 1.2, R * 2.4, R * 2.4);
     g.strokeStyle = 'rgba(40,44,50,0.5)';
     g.lineWidth = 1.2;
     for (let i = 0; i < 2; i++) {
@@ -189,7 +154,6 @@ const Paint = {
     }
     g.fillStyle = '#5b9446';
     for (let i = 0; i < 8; i++) circle(g, -R * 0.25 + rng() * R * 0.5, -R * 0.3 + rng() * R * 0.45, 1.5 + rng() * 2);
-    volumeShade(g, R, 0.28);
     if (ripe) {
       for (let i = 0; i < 9; i++) {
         const a = rng() * TAU, d = R * (0.2 + rng() * 0.6);
@@ -239,49 +203,77 @@ const Paint = {
   },
 };
 
-const Sprites = {
-  trees: { pine: [], oak: [], birch: [], autumn: [] },
-  rocks: [], mossRocks: [], bushes: [], bushesBare: [], grass: [], grassCut: [], stump: null,
-  icons: {},      // id -> canvas (for drawing in-world)
-  iconURL: {},    // id -> data URL (for HTML)
+const TREE_SIZES = { pine: [34, 38, 42], oak: [34, 38, 42], birch: [28, 31, 34], autumn: [34, 37, 40] };
 
-  init() {
-    const sizes = { pine: [34, 38, 42], oak: [34, 38, 42], birch: [28, 31, 34], autumn: [34, 37, 40] };
-    for (const sp in sizes) {
-      sizes[sp].forEach((R, i) => {
-        const pad = R + 4;
-        this.trees[sp].push(makeSprite(pad * 2, pad * 2, g => {
-          if (sp === 'pine') Paint.pine(g, R, 101 + i * 17);
-          else Paint.broadleaf(g, R, 211 + i * 31 + sp.length, PAL[sp]);
-        }));
-      });
-    }
-    for (let i = 0; i < 3; i++) {
-      this.rocks.push(makeSprite(48, 48, g => Paint.rock(g, 20, 300 + i * 7, false)));
-      this.mossRocks.push(makeSprite(48, 48, g => Paint.rock(g, 20, 300 + i * 7, true)));
-      this.bushes.push(makeSprite(40, 40, g => Paint.bush(g, 16, 400 + i * 13, true)));
-      this.bushesBare.push(makeSprite(40, 40, g => Paint.bush(g, 16, 400 + i * 13, false)));
-      this.grass.push(makeSprite(40, 40, g => Paint.grass(g, 16, 500 + i * 11, false)));
-      this.grassCut.push(makeSprite(40, 40, g => Paint.grass(g, 16, 500 + i * 11, true)));
-    }
-    this.stump = makeSprite(34, 34, g => Paint.stump(g));
-    this.makeIcons();
+const Sprites = {
+  k: 0.5,             // art pixels per world pixel, set by Render
+  cache: new Map(),
+  iconURL: {},        // id -> data URL of a 24x24 pixel icon (HUD)
+  iconSmallURL: {},   // id -> data URL of a 12x12 pixel icon (cost lists)
+
+  init() { this.makeIcons(); },
+
+  setScale(k) {
+    if (k === this.k) return;
+    this.k = k;
+    this.cache.clear();
   },
 
+  // A static sprite painted in world units at the art resolution, turned into pixel art once and cached.
+  get(id, size, paint, opts) {
+    let spr = this.cache.get(id);
+    if (spr) return spr;
+    const n = Math.ceil(size * this.k) + 2;
+    const c = document.createElement('canvas');
+    c.width = c.height = n;
+    const g = c.getContext('2d', { willReadFrequently: true });
+    g.translate(n / 2, n / 2);
+    g.scale(this.k, this.k);
+    g.lineCap = 'round';
+    g.lineJoin = 'round';
+    paint(g);
+    Pixelize.process(c, opts);
+    spr = { c, w: n, h: n };
+    this.cache.set(id, spr);
+    return spr;
+  },
+
+  // `s` picks one of a few seeded variants so neighbours don't look alike.
+  tree(sp, v, s) {
+    const R = TREE_SIZES[sp][v];
+    return this.get(`tree ${sp} ${v} ${s}`, (R + 4) * 2, g => {
+      if (sp === 'pine') Paint.pine(g, R, 101 + v * 17 + s * 1009);
+      else Paint.broadleaf(g, R, 211 + v * 31 + sp.length + s * 1013, PAL[sp]);
+    });
+  },
+  rock(v, mossy, s, size) {
+    const q = Math.round(size * 10) / 10;
+    return this.get(`rock ${v} ${mossy} ${s} ${q}`, 50 * q, g => Paint.rock(g, 20 * q, 300 + v * 7 + s * 1019, mossy));
+  },
+  bush(v, ripe, s) { return this.get(`bush ${v} ${ripe} ${s}`, 40, g => Paint.bush(g, 16, 400 + v * 13 + s * 1021, ripe)); },
+  grass(v, cut, s) { return this.get(`grass ${v} ${cut} ${s}`, 40, g => Paint.grass(g, 16, 500 + v * 11 + s * 1031, cut), { shade: false, colors: 5 }); },
+  stump(s) { return this.get(`stump ${s}`, 34, g => { g.rotate(s * 2.1); Paint.stump(g); }); },
+  worldIcon(id) { return this.get(`icon ${id}`, 22, g => { g.scale(22 / 56, 22 / 56); Icon.draw(g, id); }, { colors: 8 }); },
+
   makeIcons() {
-    const ids = [...INV_ORDER, ...GEAR_ORDER, ...BUILD_ORDER, 'heart', 'food', 'warmth', 'stamina', 'swing', 'dodge', 'use', 'craft', 'build', 'demolish', 'pause', 'sound', 'muted'];
+    const ids = [...INV_ORDER, ...GEAR_ORDER, ...BUILD_ORDER, 'heart', 'food', 'warmth', 'stamina', 'swing', 'dodge', 'use', 'craft', 'build', 'demolish', 'pause', 'sound', 'muted', 'crate'];
     for (const id of ids) {
-      const c = document.createElement('canvas');
-      c.width = c.height = 64;
-      const g = c.getContext('2d');
-      g.translate(32, 32);
-      g.scale(64 / 56, 64 / 56);
-      g.lineCap = 'round';
-      g.lineJoin = 'round';
-      Icon.draw(g, id);
-      this.icons[id] = c;
-      try { this.iconURL[id] = c.toDataURL('image/png'); } catch (e) { this.iconURL[id] = ''; }
+      this.iconURL[id] = this.iconImage(id, 24);
+      this.iconSmallURL[id] = this.iconImage(id, 12);
     }
+  },
+
+  iconImage(id, n) {
+    const c = document.createElement('canvas');
+    c.width = c.height = n;
+    const g = c.getContext('2d', { willReadFrequently: true });
+    g.translate(n / 2, n / 2);
+    g.scale((n - 2) / 56, (n - 2) / 56);
+    g.lineCap = 'round';
+    g.lineJoin = 'round';
+    Icon.draw(g, id);
+    Pixelize.process(c, { outline: true, colors: n > 16 ? 8 : 6 });
+    try { return c.toDataURL('image/png'); } catch (e) { return ''; }
   },
 };
 
@@ -422,6 +414,27 @@ const Icon = {
     this.fishShape(g, '#b9763d', '#e3b47a', '#8a5226');
     g.strokeStyle = 'rgba(50,25,10,0.75)'; g.lineWidth = 2;
     for (let i = -1; i <= 1; i++) { g.beginPath(); g.moveTo(-6 + i * 7, -8); g.lineTo(-1 + i * 7, 8); g.stroke(); }
+  },
+  rod(g) {
+    g.save(); g.rotate(-0.8);
+    g.strokeStyle = '#6e4726'; g.lineWidth = 3.4;
+    g.beginPath(); g.moveTo(-24, 0); g.lineTo(24, 0); g.stroke();
+    g.strokeStyle = '#c9a66a'; g.lineWidth = 5.5;
+    g.beginPath(); g.moveTo(-24, 0); g.lineTo(-11, 0); g.stroke();
+    g.fillStyle = '#8c9196'; circle(g, -9, 6, 4.5);
+    g.restore();
+    g.strokeStyle = '#e8e2d2'; g.lineWidth = 1.6;
+    g.beginPath(); g.moveTo(16.7, -17.2); g.quadraticCurveTo(23, 0, 16, 12); g.stroke();
+    g.fillStyle = '#f1ece0'; circle(g, 16, 15, 5.5);
+    g.fillStyle = '#d8402f'; g.beginPath(); g.arc(16, 15, 5.5, Math.PI, TAU); g.fill();
+  },
+  crate(g) {
+    g.fillStyle = '#6e4726'; roundRect(g, -21, -17, 42, 36, 3); g.fill();
+    g.fillStyle = '#a7743f';
+    for (let i = 0; i < 3; i++) { roundRect(g, -18, -14 + i * 11, 36, 8.5, 1.5); g.fill(); }
+    g.fillStyle = '#4f321b'; g.fillRect(-21, -4, 42, 3);
+    g.fillStyle = '#b7bcc0';
+    for (const [x, y] of [[-21, -17], [14, -17], [-21, 12], [14, 12]]) g.fillRect(x, y, 7, 7);
   },
   bandage(g) {
     g.fillStyle = '#d8d0bd';

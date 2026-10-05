@@ -211,6 +211,15 @@ const Sfx = {
         [392, 330, 262, 196].forEach((f, i) => this.tone({ type: 'triangle', f0: f, dur: 0.6, vol: 0.12 * v, delay: i * 0.22 }));
         break;
       case 'trap': this.tone({ type: 'triangle', f0: 700, f1: 300, dur: 0.12, vol: 0.12 * v }); break;
+      case 'cast': this.noise({ f0: 2600, f1: 500, dur: 0.24, vol: 0.08 * v, q: 0.9 }); break;
+      case 'plip': this.tone({ type: 'sine', f0: 940 * p, f1: 520, dur: 0.07, vol: 0.07 * v }); break;
+      case 'bite':
+        this.tone({ type: 'triangle', f0: 560, f1: 170, dur: 0.16, vol: 0.18 * v });
+        this.noise({ f0: 1300, f1: 450, dur: 0.18, vol: 0.12 * v, delay: 0.03 });
+        break;
+      case 'catch':
+        [660, 880, 1175].forEach((f, i) => this.tone({ type: 'triangle', f0: f, dur: 0.16, vol: 0.08 * v, delay: i * 0.07 }));
+        break;
       default: break;
     }
   },

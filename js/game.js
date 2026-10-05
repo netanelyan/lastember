@@ -56,6 +56,7 @@ const Game = {
       stats: { kills: 0, hunted: 0, built: 0, crafted: 0, gathered: 0, predators: 0, fish: 0 },
       flags: {}, tipIdx: 0, wave: null, build: null,
       cook: { t: 0, fire: null, item: null },
+      fishing: null,
       snow: 0, popT: 0, dayPredT: 45, deathT: 0, fxT: 0,
     };
   },
@@ -388,23 +389,31 @@ const Game = {
     if (sp > 20) p.walk += sp * dt * 0.075;
 
     // idle tool
-    p.idleTool = this.weaponId();
+    p.idleTool = S.fishing ? 'rod' : this.weaponId();
 
     // actions
-    if (!S.build) {
+    if (S.fishing) {
+      // walking off or rolling reels the line in; the swing button reels too
+      if (p.dodgeT > 0 || dist(p.x, p.y, S.fishing.ax, S.fishing.ay) > 26) this.endFishing();
+      else if (I.hit('KeyJ') || (I.touchMode ? I.tapped.has('swing') : I.mouse.leftPressed)) this.reel();
+    } else if (!S.build) {
       const swingHeld = I.touchMode ? I.held.swing : I.mouse.left || I.down('KeyJ') || I.hit('KeyJ');
       const shootHeld = I.touchMode ? I.held.shoot : I.mouse.right || I.down('KeyK') || I.hit('KeyK');
       if (swingHeld && p.swingCd <= 0 && p.dodgeT <= 0) this.playerSwing();
       if (shootHeld && p.shootCd <= 0 && p.dodgeT <= 0) this.playerShoot();
     }
-    // interact
+    // interact (casting and reeling go off once per press, the rest repeat while E is held)
     this.interactTarget = this.findInteract();
+    const it = this.interactTarget;
+    const usePress = I.hit('KeyE') || I.tapped.has('use');
     const useHeld = I.down('KeyE') || I.held.use;
-    if (useHeld && p.interactCd <= 0 && this.interactTarget && !this.interactTarget.disabled) {
-      this.doInteract(this.interactTarget);
+    if (it && it.once) {
+      if (usePress) this.doInteract(it);
+    } else if (useHeld && p.interactCd <= 0 && it && !it.disabled) {
+      this.doInteract(it);
       p.interactCd = 0.17;
-    } else if ((I.hit('KeyE') || I.tapped.has('use')) && this.interactTarget && this.interactTarget.disabled) {
-      UI.toast(this.interactTarget.label, 'info');
+    } else if (usePress && it && it.disabled) {
+      UI.toast(it.label, 'info');
       Sfx.play('deny');
     }
     if (I.hit('KeyF') || I.tapped.has('eat')) this.eat();
@@ -600,6 +609,7 @@ const Game = {
 
   findInteract() {
     const S = this.S, p = S.player;
+    if (S.fishing) return this.fishingPrompt();
     let best = null, bestD = PLAYER.reachInteract;
     for (const s of S.structures) {
       const d = dist(p.x, p.y, s.x, s.y) - (STRUCTS[s.type].circle ? STRUCTS[s.type].circle : 18);
@@ -620,6 +630,10 @@ const Game = {
           : { label: `Repairing needs${this.costText(cost)}`, disabled: true };
       }
       if (act) { best = Object.assign({ s, x: s.x, y: s.y }, act); bestD = d; }
+    }
+    if (!best && p.gear.rod && !p.dead) {
+      const spot = this.findFishSpot();
+      if (spot) best = { label: 'Cast your line', kind: 'cast', once: true, x: spot.x, y: spot.y, spot };
     }
     return best;
   },
@@ -647,6 +661,8 @@ const Game = {
 
   doInteract(it) {
     const S = this.S, p = S.player, s = it.s;
+    if (it.kind === 'cast') { this.cast(it.spot); return; }
+    if (it.kind === 'reel') { this.reel(); return; }
     if (it.kind === 'fuel') {
       p.inv.wood--;
       const was = s.fuel;
@@ -669,6 +685,139 @@ const Game = {
       this.fx(s.x, s.y, 5, { type: 'chip', c: '200,160,100', s0: 30, s1: 80, vz: 100, life: 0.5, size: 2 });
     }
     UI.invDirty = true;
+  },
+
+  // ================= fishing =================
+  // Cast from the shore, wait while the float bobs (a nibble or two is a fake-out), then reel in the
+  // moment it goes under. Fish come up most of the time, sometimes a big one, now and then a crate.
+
+  // Nearest water within casting reach, favouring the way you face.
+  findFishSpot() {
+    const p = this.S.player, w = this.world;
+    const ptx = Math.floor(p.x / TILE), pty = Math.floor(p.y / TILE);
+    let best = null, bestS = Infinity;
+    for (let ty = pty - 3; ty <= pty + 3; ty++) {
+      for (let tx = ptx - 3; tx <= ptx + 3; tx++) {
+        if (!w.isWater(tx, ty)) continue;
+        const x = tx * TILE + TILE / 2, y = ty * TILE + TILE / 2;
+        const d = dist(p.x, p.y, x, y);
+        if (d > FISHING.reach) continue;
+        const sc = d + Math.abs(angleDiff(p.aim, Math.atan2(y - p.y, x - p.x))) * 70;
+        if (sc < bestS) { bestS = sc; best = { x, y }; }
+      }
+    }
+    return best;
+  },
+
+  fishingPrompt() {
+    const f = this.S.fishing;
+    if (f.phase === 'bite') return { label: 'Reel in now!', kind: 'reel', once: true, hot: true, x: f.x, y: f.y };
+    if (f.phase === 'wait' || f.phase === 'nibble') return { label: 'Wait for the float to dip', kind: 'reel', once: true, x: f.x, y: f.y };
+    return null;
+  },
+
+  cast(spot) {
+    const S = this.S, p = S.player;
+    const tx = spot.x + rand(-9, 9), ty = spot.y + rand(-9, 9);
+    p.aim = Math.atan2(ty - p.y, tx - p.x);
+    S.fishing = {
+      phase: 'cast', t: 0, ax: p.x, ay: p.y, sx: p.x, sy: p.y, tx, ty, x: p.x, y: p.y,
+      wait: rand(FISHING.wait[0], FISHING.wait[1]) / (1 + 0.5 * (S.perks.angler || 0)), nibbles: randi(0, 2), ripple: 0,
+    };
+    Sfx.play('cast');
+  },
+
+  updateFishing(dt) {
+    const S = this.S, f = S.fishing;
+    if (!f) return;
+    if (S.player.dead) { this.endFishing(); return; }
+    f.t += dt;
+    if (f.phase === 'cast') {
+      const k = Math.min(1, f.t / 0.32);
+      f.x = lerp(f.sx, f.tx, k);
+      f.y = lerp(f.sy, f.ty, k) - Math.sin(k * Math.PI) * 26;
+      if (k >= 1) {
+        f.x = f.tx; f.y = f.ty;
+        f.phase = 'wait'; f.t = 0;
+        Sfx.play('splash', { vol: 0.5 });
+        this.splash(f.x, f.y, 4, 16);
+      }
+    } else if (f.phase === 'wait') {
+      f.ripple -= dt;
+      if (f.ripple <= 0) { f.ripple = rand(1.1, 1.8); this.fx(f.x, f.y + 2, 1, { type: 'ring', c: '220,240,245', life: 0.9, size: 12 }); }
+      if (f.t >= f.wait) {
+        f.t = 0;
+        if (f.nibbles > 0) {
+          f.nibbles--;
+          f.phase = 'nibble';
+          Sfx.play('plip', { pitch: rand(0.9, 1.15) });
+          this.fx(f.x, f.y + 2, 1, { type: 'ring', c: '230,245,250', life: 0.4, size: 9 });
+        } else {
+          f.phase = 'bite';
+          Sfx.play('bite');
+          this.splash(f.x, f.y, 6, 20);
+        }
+      }
+    } else if (f.phase === 'nibble') {
+      if (f.t > 0.35) { f.phase = 'wait'; f.t = 0; f.wait = rand(0.5, 1.3); }
+    } else if (f.phase === 'bite') {
+      if (f.t > FISHING.biteWindow + 0.1 * (S.perks.angler || 0)) {
+        this.text(f.x, f.y - 20, 'It got away', '#ffd2b0', 13, 'fishmiss');
+        this.endFishing();
+      }
+    } else if (f.phase === 'catch') {
+      if (f.t >= 0.45) { this.landCatch(f); S.fishing = null; }
+    }
+  },
+
+  reel() {
+    const S = this.S, f = S.fishing;
+    if (!f || f.phase === 'cast' || f.phase === 'catch') return;
+    if (f.phase !== 'bite') { this.endFishing(); return; }   // too early: the line just comes back in
+    const angler = S.perks.angler || 0;
+    const crate = FISHING.crate + 0.05 * angler, big = FISHING.big + 0.12 * angler;
+    const r = Math.random();
+    f.catch = r < crate ? 'crate' : r < crate + big ? 'big' : 'fish';
+    f.phase = 'catch';
+    f.t = 0;
+    f.cx = f.x; f.cy = f.y;
+    Sfx.play('splash');
+    this.splash(f.x, f.y, 9, 24);
+  },
+
+  landCatch(f) {
+    const S = this.S, p = S.player;
+    if (f.catch === 'crate') {
+      const loot = FISHING.crateLoot.slice().sort(() => Math.random() - 0.5).slice(0, randi(2, 3));
+      const parts = [];
+      for (const [item, a, b] of loot) {
+        const n = randi(a, b);
+        p.inv[item] += n;
+        S.stats.gathered += n;
+        parts.push(`${n} ${ITEMS[item].name.toLowerCase()}`);
+      }
+      UI.toast(`A crate! ${parts.join(', ')}`, 'good');
+      this.text(p.x, p.y - 30, 'Crate!', '#ffd98a', 15);
+    } else {
+      const n = f.catch === 'big' ? 2 : 1;
+      p.inv.fish += n;
+      S.stats.fish += n;
+      this.text(p.x, p.y - 30, f.catch === 'big' ? 'Big catch! +2 Raw Fish' : '+1 Raw Fish', '#cfe9f2', f.catch === 'big' ? 15 : 14);
+    }
+    Sfx.play('catch');
+    UI.invDirty = true;
+  },
+
+  endFishing() {
+    const f = this.S.fishing;
+    if (!f) return;
+    if (f.phase !== 'cast') this.fx(f.x, f.y, 1, { type: 'ring', c: '220,240,245', life: 0.4, size: 8 });
+    this.S.fishing = null;
+  },
+
+  splash(x, y, n, size) {
+    this.fx(x, y, 1, { type: 'ring', c: '225,242,248', life: 0.6, size });
+    this.fx(x, y, n, { type: 'dot', c: '214,236,242', s0: 30, s1: 100, vz: 120, life: 0.5, size: 1.8 });
   },
 
   eat() {
@@ -709,6 +858,7 @@ const Game = {
   hurtPlayer(dmg, src) {
     const S = this.S, p = S.player;
     if (p.iframes > 0 || p.dead || this.mode !== 'play') return false;
+    if (S.fishing) this.endFishing();
     if (p.gear.armor) dmg *= 0.65;
     dmg = Math.max(1, Math.round(dmg));
     p.hp -= dmg;
@@ -1853,6 +2003,7 @@ const Game = {
     S.time += dt;
     this.updateCycle(dt);
     this.updatePlayer(dt);
+    this.updateFishing(dt);
     this.updateBuild(dt);
     this.updateStructures(dt);
     this.updateFlow(dt);

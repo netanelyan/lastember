@@ -21,7 +21,7 @@
       if (I.hit('KeyC') || I.hit('Tab')) UI.toggleCraft();
       if (I.hit('KeyB')) UI.toggleBuild();
       if (UI.craftOpen) {
-        for (let i = 0; i < 9; i++) if (I.hit('Digit' + (i + 1)) && RECIPES[i]) UI.craftKey(RECIPES[i].id);
+        for (let i = 0; i < 10; i++) if (I.hit('Digit' + ((i + 1) % 10)) && RECIPES[i]) UI.craftKey(RECIPES[i].id);
         if (I.hit('PageDown') || I.hit('PageUp')) UI.el.craftList.scrollBy({ top: I.hit('PageDown') ? 200 : -200, behavior: 'smooth' });
       }
       if (UI.buildOpen) {

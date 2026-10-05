@@ -181,6 +181,8 @@ const UI = {
     this.toggleCraft(false);
     this.refreshBuild();
     this.hurtV = 0;
+    // the joystick measured its zone while the HUD was hidden; put it back at its resting spot
+    if (Input._joyRest && Input.joy.id === null) requestAnimationFrame(Input._joyRest);
   },
 
   showPause(on) {
@@ -283,7 +285,7 @@ const UI = {
       row.className = 'recipe';
       const iconId = r.gear || r.item;
       const name = r.gear ? GEAR[r.gear].name : `${ITEMS[r.item].name}${r.n > 1 ? ' ×' + r.n : ''}`;
-      row.innerHTML = `${i < 9 ? `<kbd>${i + 1}</kbd>` : ''}<img class="ricon" alt="" src="${Sprites.iconURL[iconId]}">
+      row.innerHTML = `${i < 10 ? `<kbd>${(i + 1) % 10}</kbd>` : ''}<img class="ricon" alt="" src="${Sprites.iconURL[iconId]}">
         <div class="rbody"><div class="rname"><span></span>${r.bench ? '<em class="req">Workbench</em>' : ''}</div>
         <div class="rdesc"></div><div class="rcost"></div></div>
         <button type="button" class="rbtn">Craft</button>`;
@@ -361,7 +363,7 @@ const UI = {
       const cost = b.querySelector('.bcost');
       for (const k in def.cost) {
         const c = document.createElement('span');
-        c.innerHTML = `<img alt="" src="${Sprites.iconURL[k]}">${def.cost[k]}`;
+        c.innerHTML = `<img alt="" src="${Sprites.iconSmallURL[k]}">${def.cost[k]}`;
         c.dataset.item = k;
         cost.appendChild(c);
       }
@@ -532,6 +534,7 @@ const UI = {
     if (it && !S.build && !p.dead) {
       pr.hidden = false;
       pr.classList.toggle('disabled', !!it.disabled);
+      pr.classList.toggle('hot', !!it.hot);
       if (this.el.promptText.textContent !== it.label) this.el.promptText.textContent = it.label;
       this.el.promptKey.textContent = Input.touchMode ? 'Use' : 'E';
     } else pr.hidden = true;
@@ -593,19 +596,19 @@ const UI = {
     g.beginPath(); g.arc(Math.cos(a) * R, Math.sin(a) * R, 8, 0, TAU); g.stroke(); g.fill();
     if (night) { g.fillStyle = '#16231e'; g.beginPath(); g.arc(Math.cos(a) * R + 3.5, Math.sin(a) * R - 2.5, 6, 0, TAU); g.fill(); }
     g.fillStyle = 'rgba(236,228,210,0.85)';
-    g.font = '700 15px "Barlow Semi Condensed", "Arial Narrow", sans-serif';
+    g.font = '18px "Tiny5", monospace';
     g.textAlign = 'center';
     g.textBaseline = 'middle';
     const S = Game.S;
     const wv = S.phase === 'night' ? S.creatures.filter(cr => cr.night && !cr.flee && CREATURES[cr.type].kind === 'predator').length : null;
     if (wv != null) {
       g.fillText(String(wv), 0, -3);
-      g.font = '600 9px "Barlow Semi Condensed", "Arial Narrow", sans-serif';
+      g.font = '10px "Tiny5", monospace';
       g.fillStyle = 'rgba(236,228,210,0.6)';
       g.fillText('HUNTING', 0, 10);
     } else {
       g.fillText(String(S.day), 0, -3);
-      g.font = '600 9px "Barlow Semi Condensed", "Arial Narrow", sans-serif';
+      g.font = '10px "Tiny5", monospace';
       g.fillStyle = 'rgba(236,228,210,0.6)';
       g.fillText('DAY', 0, 10);
     }
