@@ -6,7 +6,7 @@ A fast, top-down survival game that runs in your browser. Gather and hunt by day
 
 **[Play in your browser](https://netanelyan.github.io/lastember/)**
 
-It works on a computer with keyboard and mouse, and on phones and tablets with touch controls.
+It works on a computer with keyboard and mouse, with just a keyboard, and on phones and tablets with touch controls.
 
 ## How a run works
 
@@ -21,20 +21,23 @@ Your score is the number of nights you survive.
 
 ## Controls
 
-| Action | Keyboard and mouse | Touch |
-| --- | --- | --- |
-| Move | `W` `A` `S` `D` or arrow keys | Left thumb (joystick) |
-| Sprint | `Shift` | Push the joystick to the edge |
-| Roll (dodges attacks) | `Space` | Roll |
-| Swing: chop, mine, fight | Left click | Big button (aims for you) |
-| Shoot your bow | Right click | Bow button (aims at the nearest animal) |
-| Feed the fire, repair, load | `E` | Use |
-| Eat / use a bandage | `F` / `Q` | Eat / Heal |
-| Craft / build | `C` / `B` | Buttons next to the map |
-| Pick a building | `1`–`0`, `X` to remove | Tap a card |
-| Place it | Click the ground (hold and drag for walls) | Tap the ground (drag for walls) |
-| Pause | `Esc` | Pause button |
-| Mute | `M` | Pause menu |
+| Action | Keyboard | Mouse | Touch |
+| --- | --- | --- | --- |
+| Move | `W` `A` `S` `D` or arrow keys | | Left thumb (joystick) |
+| Sprint | `Shift` | | Push the joystick to the edge |
+| Roll (dodges attacks) | `Space` | | Roll |
+| Swing: chop, mine, fight | `J` (aims for you) | Left click | Big button (aims for you) |
+| Shoot your bow | `K` (aims at the nearest animal) | Right click | Bow button (aims at the nearest animal) |
+| Feed the fire, repair, load | `E` | | Use |
+| Eat / use a bandage | `F` / `Q` | | Eat / Heal |
+| Craft | `C`, then `1`–`9` | Craft button | Craft button |
+| Build | `B`, then `1`–`0` to pick, `X` to remove | Build button | Build button, then tap a card |
+| Place it | `J` places it in front of you. Hold `J` and walk sideways for a row of walls. | Click the ground (hold and drag for walls) | Tap the ground (drag for walls) |
+| Menus | Arrow keys and `Enter` | Click | Tap |
+| Pause | `Esc` | | Pause button |
+| Mute | `M` | | Pause menu |
+
+You can play the whole game with only the keyboard. Touching the mouse switches aiming back to the cursor.
 
 ## What's in it
 

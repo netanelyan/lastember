@@ -4,8 +4,10 @@
 const Input = {
   keys: new Set(),
   pressed: new Set(),
-  mouse: { x: 0, y: 0, has: false, left: false, right: false, leftPressed: false, rightPressed: false },
+  mouse: { x: 0, y: 0, has: false, left: false, right: false, leftPressed: false, rightPressed: false, movedAt: 0 },
   touchMode: false,
+  kbAim: false,          // playing with the keyboard: face where you walk, swings and shots aim for you
+  kbAnchor: null,        // mouse position when keyboard aiming started
   joy: { id: null, bx: 0, by: 0, dx: 0, dy: 0, mag: 0 },
   held: {},              // touch buttons currently held
   tapped: new Set(),     // touch buttons pressed this frame
@@ -14,13 +16,15 @@ const Input = {
   JOY_R: 56,
 
   init(canvas) {
-    const block = new Set(['Space', 'Tab', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'KeyF', 'KeyQ', 'KeyE']);
+    // Enter and Space are handled by the game (menus included), never by a focused button.
+    const block = new Set(['Space', 'Tab', 'Enter', 'NumpadEnter', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'KeyF', 'KeyQ', 'KeyE']);
     window.addEventListener('keydown', e => {
       if (e.ctrlKey || e.metaKey || e.altKey) return;
       if (block.has(e.code)) e.preventDefault();
       if (!e.repeat) this.pressed.add(e.code);
       this.keys.add(e.code);
       if (this.touchMode) this.setTouchMode(false);
+      if (e.code === 'KeyJ' || e.code === 'KeyK') this.setKbAim(true);
     });
     window.addEventListener('keyup', e => { this.keys.delete(e.code); });
     window.addEventListener('blur', () => this.releaseAll());
@@ -38,6 +42,7 @@ const Input = {
         return;
       }
       if (this.touchMode && e.pointerType === 'mouse') this.setTouchMode(false);
+      this.kbAim = false;
       this.mouse.x = e.clientX; this.mouse.y = e.clientY; this.mouse.has = true;
       if (e.button === 0) { this.mouse.left = true; this.mouse.leftPressed = true; }
       if (e.button === 2) { this.mouse.right = true; this.mouse.rightPressed = true; }
@@ -62,7 +67,11 @@ const Input = {
     canvas.addEventListener('pointercancel', up);
     // Mouse position also updates when hovering over HUD, so aiming stays smooth.
     window.addEventListener('pointermove', e => {
-      if (e.pointerType === 'mouse') { this.mouse.x = e.clientX; this.mouse.y = e.clientY; this.mouse.has = true; }
+      if (e.pointerType !== 'mouse') return;
+      if (e.clientX !== this.mouse.x || e.clientY !== this.mouse.y) this.mouse.movedAt = performance.now();
+      this.mouse.x = e.clientX; this.mouse.y = e.clientY; this.mouse.has = true;
+      // Moving the mouse a little hands aiming back to it.
+      if (this.kbAim && (!this.kbAnchor || Math.hypot(e.clientX - this.kbAnchor.x, e.clientY - this.kbAnchor.y) > 12)) this.kbAim = false;
     });
     window.addEventListener('pointerup', e => {
       if (e.pointerType === 'mouse') { if (e.button === 0) this.mouse.left = false; if (e.button === 2) this.mouse.right = false; }
@@ -139,6 +148,16 @@ const Input = {
     if (on) { this.mouse.left = false; this.mouse.right = false; }
     if (this.onModeChange) this.onModeChange(on);
   },
+
+  setKbAim(on) {
+    if (on && !this.kbAim) this.kbAnchor = this.mouse.has ? { x: this.mouse.x, y: this.mouse.y } : null;
+    this.kbAim = on;
+  },
+
+  // The game aims for the player (touch, or keyboard without the mouse) instead of following the cursor.
+  autoAim() { return this.touchMode || this.kbAim || !this.mouse.has; },
+
+  mouseIdle() { return (performance.now() - this.mouse.movedAt) / 1000; },
 
   releaseAll() {
     this.keys.clear();

@@ -2,13 +2,13 @@
 // Game state and simulation: player, creatures, structures, day/night cycle, waves, saving.
 
 const TIPS = [
-  { text: 'Hit trees to gather wood', key: ['Left click', 'Swing'], done: S => S.player.inv.wood >= 6 || S.player.gear.axe },
-  { text: 'Break rocks for stone', key: ['Left click', 'Swing'], done: S => S.player.inv.stone >= 3 || S.player.gear.axe },
-  { text: 'Craft a Stone Axe', key: ['C', 'Craft'], done: S => !!S.player.gear.axe },
+  { text: 'Hit trees to gather wood', key: ['J or left click', 'Swing'], done: S => S.player.inv.wood >= 6 || S.player.gear.axe },
+  { text: 'Break rocks for stone', key: ['J or left click', 'Swing'], done: S => S.player.inv.stone >= 3 || S.player.gear.axe },
+  { text: 'Craft a Stone Axe', key: ['C, then 1', 'Craft'], done: S => !!S.player.gear.axe },
   { text: 'Feed the campfire some wood', key: ['E near the fire', 'Use'], done: S => !!S.flags.fed },
-  { text: 'Hunt an animal or spear a fish', key: ['Left click', 'Swing'], done: S => S.stats.hunted + S.stats.fish + S.stats.predators >= 1 },
+  { text: 'Hunt an animal or spear a fish', key: ['J or left click', 'Swing'], done: S => S.stats.hunted + S.stats.fish + S.stats.predators >= 1 },
   { text: 'Stand by the fire to cook, then eat', key: ['F', 'Eat'], done: S => !!S.flags.ateCooked },
-  { text: 'Build walls around your camp', key: ['B', 'Build'], done: S => S.stats.built >= 3 },
+  { text: 'Build walls around your camp', key: ['B, then 2', 'Build'], done: S => S.stats.built >= 3 },
 ];
 
 const Game = {
@@ -325,11 +325,14 @@ const Game = {
     let ml = Math.hypot(mx, my);
     if (ml > 1) { mx /= ml; my /= ml; ml = 1; }
 
-    // aim
-    if (!I.touchMode && I.mouse.has) {
+    // aim: the cursor, or else the way you walk. Walking with the mouse left alone hands aiming to the keyboard.
+    if (!I.kbAim && !I.touchMode && ml > 0 && !S.build && !I.mouse.left && !I.mouse.right && I.mouseIdle() > 3) I.setKbAim(true);
+    // Holding J while building keeps you facing one way, so you can walk sideways along a row of walls.
+    const lockAim = S.build && I.down('KeyJ');
+    if (!I.autoAim()) {
       const m = Render.screenToWorld(I.mouse.x, I.mouse.y);
       p.aim = Math.atan2(m.y - p.y, m.x - p.x);
-    } else if (ml > 0.2 && p.swingT <= 0 && p.bowT <= 0) {
+    } else if (ml > 0.2 && p.swingT <= 0 && p.bowT <= 0 && !lockAim) {
       p.aim = approachAngle(p.aim, Math.atan2(my, mx), 12 * dt);
     }
 
@@ -389,8 +392,8 @@ const Game = {
 
     // actions
     if (!S.build) {
-      const swingHeld = I.touchMode ? I.held.swing : I.mouse.left;
-      const shootHeld = I.touchMode ? I.held.shoot : I.mouse.right;
+      const swingHeld = I.touchMode ? I.held.swing : I.mouse.left || I.down('KeyJ') || I.hit('KeyJ');
+      const shootHeld = I.touchMode ? I.held.shoot : I.mouse.right || I.down('KeyK') || I.hit('KeyK');
       if (swingHeld && p.swingCd <= 0 && p.dodgeT <= 0) this.playerSwing();
       if (shootHeld && p.shootCd <= 0 && p.dodgeT <= 0) this.playerShoot();
     }
@@ -412,7 +415,7 @@ const Game = {
     const S = this.S, p = S.player, w = this.world;
     const wid = this.weaponId();
     const W = MELEE[wid];
-    const assist = Input.touchMode ? 1.3 : 0.3;
+    const assist = Input.autoAim() ? 1.3 : 0.3;
     let aim = p.aim;
     // aim assist toward the most likely target
     let bestC = null, bestCScore = Infinity;
@@ -437,7 +440,7 @@ const Game = {
         if (Math.abs(angleDiff(aim, a)) > W.arc / 2 * 0.6) aim = a;
       }
     }
-    if (Input.touchMode || bestC || node) p.aim = aim;
+    if (Input.autoAim() || bestC || node) p.aim = aim;
     p.swingSide = -p.swingSide;
     p.swingT = 0.18;
     p.swingCd = W.cd;
@@ -561,9 +564,9 @@ const Game = {
       return;
     }
     let aim = p.aim;
-    // touch: auto-target; mouse: tiny assist
+    // touch and keyboard: auto-target; mouse: tiny assist
     const range = 460;
-    const window = Input.touchMode ? 1.2 : 0.12;
+    const window = Input.autoAim() ? 1.2 : 0.12;
     let best = null, bestS = Infinity;
     for (const c of S.creatures) {
       if (c.dead || c.type === 'fish') continue;
@@ -579,7 +582,7 @@ const Game = {
     if (best) {
       const lead = dist(p.x, p.y, best.x, best.y) / 800;
       aim = Math.atan2(best.y + best.vy * lead - p.y, best.x + best.vx * lead - p.x);
-      if (Input.touchMode) p.aim = aim;
+      if (Input.autoAim()) p.aim = aim;
     }
     p.inv.arrow--;
     const lvl = S.perks.aim || 0;
@@ -821,6 +824,11 @@ const Game = {
       if (this.ghostLock) { tx = this.ghostLock.tx; ty = this.ghostLock.ty; }
       else { tx = Math.floor((p.x + Math.cos(p.aim) * TILE * 1.3) / TILE); ty = Math.floor((p.y + Math.sin(p.aim) * TILE * 1.3) / TILE); }
       if (I.tapped.has('place') && this.ghost) { pressed = true; held = true; }
+    } else if (I.autoAim()) {
+      // keyboard: the tile in front of you; J places, and holding J lays a row as you walk
+      tx = Math.floor((p.x + Math.cos(p.aim) * TILE * 1.3) / TILE); ty = Math.floor((p.y + Math.sin(p.aim) * TILE * 1.3) / TILE);
+      pressed = I.hit('KeyJ');
+      held = pressed || I.down('KeyJ');
     } else {
       const m = Render.screenToWorld(I.mouse.x, I.mouse.y);
       tx = Math.floor(m.x / TILE); ty = Math.floor(m.y / TILE);
@@ -845,11 +853,11 @@ const Game = {
     if (pressed || (held && drag && newTile && this.lastPlaced)) {
       if (!reason) {
         this.place(id, tx, ty);
-        this.lastPlaced = { tx, ty };
       } else if (pressed) {
         UI.toast(reason, 'info', 'place');
         Sfx.play('deny');
       }
+      this.lastPlaced = { tx, ty };   // keep laying from here even if this tile was taken, e.g. the end of a wall
     }
     if (!held) this.lastPlaced = null;
   },
@@ -1785,7 +1793,7 @@ const Game = {
   updateCamera(dt, instant) {
     const p = this.S.player, cam = Render.cam;
     let tx = p.x, ty = p.y;
-    if (!Input.touchMode && Input.mouse.has && this.mode === 'play') {
+    if (!Input.autoAim() && this.mode === 'play') {
       tx += clamp((Input.mouse.x - Render.W / 2) / Render.scale * 0.16, -80, 80);
       ty += clamp((Input.mouse.y - Render.H / 2) / Render.scale * 0.16, -60, 60);
     } else {

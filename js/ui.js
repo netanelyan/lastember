@@ -12,6 +12,7 @@ const UI = {
   bossC: null,
   hurtV: 0,
   lastTip: null,
+  menuReadyAt: 0,
 
   init() {
     // fill every icon placeholder
@@ -98,6 +99,42 @@ const UI = {
     this.el.pause.hidden = true;
     this.el.perks.hidden = true;
     this.refreshTitle();
+    this.focusMenu(this.el.title);
+  },
+
+  // ---------- keyboard menus ----------
+  activeScreen() {
+    for (const k of ['help', 'perks', 'pause', 'over', 'title']) if (!this.el[k].hidden) return this.el[k];
+    return null;
+  },
+
+  // Select the main button so Enter works straight away. `wait` guards screens that open on their own
+  // (dawn, death) against a key the player was already pressing.
+  focusMenu(scr, wait = 0) {
+    const b = scr.querySelector('.btn.primary:not([hidden])') || scr.querySelector('button:not([hidden])');
+    if (b) b.focus({ preventScroll: true });
+    this.menuReadyAt = performance.now() + wait;
+  },
+
+  // Arrows, WASD or Tab move between the buttons on the open screen. Enter presses the selected one.
+  menuKeys() {
+    const scr = this.activeScreen();
+    if (!scr) return;
+    const I = Input;
+    const shift = I.down('ShiftLeft') || I.down('ShiftRight');
+    const back = I.hit('ArrowUp') || I.hit('ArrowLeft') || I.hit('KeyW') || I.hit('KeyA') || (I.hit('Tab') && shift);
+    const fwd = I.hit('ArrowDown') || I.hit('ArrowRight') || I.hit('KeyS') || I.hit('KeyD') || (I.hit('Tab') && !shift);
+    const btns = [...scr.querySelectorAll('button')].filter(b => b.offsetParent !== null && !b.disabled);
+    if (!btns.length) return;
+    let i = btns.indexOf(document.activeElement);
+    if (scr === this.el.help && (back || fwd) && !I.hit('Tab')) {
+      // the help screen has one button, so up and down scroll it instead
+      scr.scrollBy({ top: fwd ? 120 : -120, behavior: 'smooth' });
+    } else if (back || fwd) {
+      i = i < 0 ? 0 : (i + (fwd ? 1 : -1) + btns.length) % btns.length;
+      btns[i].focus();
+    }
+    if ((I.hit('Enter') || I.hit('NumpadEnter')) && performance.now() >= this.menuReadyAt) (btns[i] || btns[0]).click();
   },
 
   newRun() {
@@ -152,12 +189,19 @@ const UI = {
       const S = Game.S;
       $('pause-sub').textContent = `Day ${S.day} · ${fmtClock(Game.clockMinutes())} · progress is saved`;
       this.syncSoundButton();
+      this.focusMenu(this.el.pause);
     }
   },
 
   showHelp(on) {
+    if (on === !this.el.help.hidden) return;
     this.el.help.hidden = !on;
     document.body.classList.toggle('help-open', on);
+    if (on) {
+      this.helpFrom = document.activeElement;
+      this.el.help.scrollTop = 0;
+      this.focusMenu(this.el.help);
+    } else if (this.helpFrom && this.helpFrom.offsetParent !== null) this.helpFrom.focus({ preventScroll: true });
   },
 
   toggleMute() {
@@ -200,6 +244,7 @@ const UI = {
       }
     }
     o.hidden = false;
+    this.focusMenu(o, 1000);
   },
 
   // ---------- perks ----------
@@ -224,6 +269,7 @@ const UI = {
     });
     this.perkChoices = choices;
     this.el.perks.hidden = false;
+    this.focusMenu(this.el.perks, 1000);
   },
   hidePerks() { this.el.perks.hidden = true; this.perkChoices = null; },
 
@@ -232,12 +278,12 @@ const UI = {
     const list = this.el.craftList;
     list.innerHTML = '';
     this.recipeEls = {};
-    for (const r of RECIPES) {
+    RECIPES.forEach((r, i) => {
       const row = document.createElement('div');
       row.className = 'recipe';
       const iconId = r.gear || r.item;
       const name = r.gear ? GEAR[r.gear].name : `${ITEMS[r.item].name}${r.n > 1 ? ' ×' + r.n : ''}`;
-      row.innerHTML = `<img class="ricon" alt="" src="${Sprites.iconURL[iconId]}">
+      row.innerHTML = `${i < 9 ? `<kbd>${i + 1}</kbd>` : ''}<img class="ricon" alt="" src="${Sprites.iconURL[iconId]}">
         <div class="rbody"><div class="rname"><span></span>${r.bench ? '<em class="req">Workbench</em>' : ''}</div>
         <div class="rdesc"></div><div class="rcost"></div></div>
         <button type="button" class="rbtn">Craft</button>`;
@@ -257,7 +303,13 @@ const UI = {
       btn.addEventListener('click', () => Game.craft(r.id));
       list.appendChild(row);
       this.recipeEls[r.id] = { row, btn, costEls };
-    }
+    });
+  },
+
+  // Number keys craft from the open panel. Bring the row into view so you see what you made.
+  craftKey(id) {
+    this.recipeEls[id].row.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    Game.craft(id);
   },
 
   toggleCraft(force) {
@@ -380,13 +432,18 @@ const UI = {
     const info = this.el.buildInfo;
     const id = this.buildInfoId || (S.build && S.build.id);
     let text = '';
-    if (id === 'demolish') text = Input.touchMode ? 'Tap something you built to take it down.' : 'Click something you built to take it down. Right click or Esc to stop.';
+    const keys = !Input.touchMode && Input.autoAim();
+    if (id === 'demolish') text = Input.touchMode ? 'Tap something you built to take it down.'
+      : keys ? 'Face something you built and press J to take it down. Esc to stop.'
+      : 'Click something you built to take it down. Right click or Esc to stop.';
     else if (id) {
       const def = STRUCTS[id];
       const gh = Game.ghost;
       const reason = S.build && S.build.id === id && gh && !gh.ok ? gh.reason : (def.bench && !Game.hasBench() ? 'Build a workbench first' : null);
-      text = `${def.name}: ${def.desc}${reason ? ' · ' + reason : ''}`;
-    } else text = Input.touchMode ? 'Pick something to build, then tap the ground.' : 'Pick something to build (1-0), then click the ground. Hold and drag for walls.';
+      text = `${def.name}: ${def.desc}${reason ? ' · ' + reason : keys && S.build && S.build.id === id ? ' · J to place' : ''}`;
+    } else text = Input.touchMode ? 'Pick something to build, then tap the ground.'
+      : keys ? 'Pick something to build (1-0), then press J to place it in front of you. Hold J and walk sideways for a row of walls.'
+      : 'Pick something to build (1-0), then click the ground. Hold and drag for walls.';
     if (info.textContent !== text) info.textContent = text;
   },
 

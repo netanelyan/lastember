@@ -9,6 +9,7 @@
     if (I.hit('KeyM')) UI.toggleMute();
     if (!UI.el.help.hidden) {
       if (I.hit('Escape')) UI.showHelp(false);
+      else UI.menuKeys();
       return;
     }
     if (Game.mode === 'play') {
@@ -19,6 +20,10 @@
       } else if (I.hit('KeyP')) Game.pause();
       if (I.hit('KeyC') || I.hit('Tab')) UI.toggleCraft();
       if (I.hit('KeyB')) UI.toggleBuild();
+      if (UI.craftOpen) {
+        for (let i = 0; i < 9; i++) if (I.hit('Digit' + (i + 1)) && RECIPES[i]) UI.craftKey(RECIPES[i].id);
+        if (I.hit('PageDown') || I.hit('PageUp')) UI.el.craftList.scrollBy({ top: I.hit('PageDown') ? 200 : -200, behavior: 'smooth' });
+      }
       if (UI.buildOpen) {
         for (let i = 0; i < 10; i++) {
           if (I.hit('Digit' + ((i + 1) % 10)) && BUILD_ORDER[i]) {
@@ -31,7 +36,8 @@
       }
     } else if (Game.mode === 'paused') {
       if (I.hit('Escape') || I.hit('KeyP')) Game.resume();
-    }
+      else UI.menuKeys();
+    } else UI.menuKeys();
   }
 
   function loop(now) {
